@@ -4,8 +4,8 @@ import sys
 def main():
     pygame.init()
     WHITE = (255, 255, 255)
-    DIM_GREY = (105, 105, 105)
-    SILVER = (215, 215, 215)
+    RED_WOOD = (113, 68, 55)
+    BROWN_YELLOW = (195, 155, 119)
     BLACK = (0, 0, 0)
     YELLOW = (240, 223, 0)
     GREEN = (75, 233, 0)
@@ -40,6 +40,11 @@ def main():
 
     white_pieces = [i for i in range(64) if board[i].isupper()]
     black_pieces = [i for i in range(64) if board[i].islower()]
+
+    move_score {"pawn move":1, "pawn capture":2, "knight move":3, "bishop move":4,"knight capture":5,
+                "bishop capture":6, "rook move":7, "rook capture":8, "queen move":9, "queen capture":10,
+                "pawn promotion":11, "king threat":12, "check mate":13}
+    
     selected = None
     moves = []
     turn = "white"
@@ -140,13 +145,17 @@ def main():
             else:
                 moves.append((piece[0], piece[1]-1))
         elif board[index] == "p":
-            moves.append((piece[0], piece[1]+1))
+            if piece[1] == 2:
+                moves.append((piece[0], piece[1]+1))
+                moves.append((piece[0], piece[1]+2))
+            else:
+                moves.append((piece[0], piece[1]+1))
         elif board[index].lower() == "n":
             for i in [-1, 1]:
                 for j in [-2, 2]:
                     moves.append((piece[0]+i, piece[1]+j))
                     moves.append((piece[0]+j, piece[1]+i))
-            moves = list(filter(lambda x:(x[1]-1)*8+(x[0]-1) not in friend_pieces and 0 < x[0] <= 8 and 0 < x[1] <= 8, moves))
+            
         elif board[index].lower() == "r":
             moves = rook_moves(piece, friend_pieces, foe_pieces)
         elif board[index].lower() == "b":
@@ -154,7 +163,15 @@ def main():
         elif board[index].lower() == "q":
             moves = bishop_moves(piece, friend_pieces, foe_pieces)
             moves.extend(rook_moves(piece, friend_pieces, foe_pieces))
-        return moves
+        elif board[index].lower() == "k":
+            foe_moves = [get_moves(((i%8)+1, (i//8)+1), foe_pieces, friend_pieces) for i in foe_pieces if board[i].lower() != "k"]
+            for i in [-1, 0, 1]:
+                for j in [-1, 0, 1]:
+                    if not (i == 0 and j == 0):
+                        if all([(piece[0]+i, piece[1]+j) not in m for m in foe_moves]) and (piece[1]+j-1)*8+(piece[0]+i-1) not in friend_pieces:
+                            moves.append((piece[0]+i, piece[1]+j))
+        return list(filter(lambda x:(x[1]-1)*8+(x[0]-1) not in friend_pieces and 0 < x[0] <= 8  and 0 < x[1] <= 8, moves))
+
     while True:
         clock.tick(fps)
         for event in pygame.event.get():
@@ -163,11 +180,12 @@ def main():
                 
         screen.fill(WHITE)
         screen.blit(turn_font.render(f"{turn}'s move", False, BLACK), (300,42))
-        color1 = DIM_GREY
-        color2 = SILVER
+        color1 = RED_WOOD
+        color2 = BROWN_YELLOW
         mouse = pygame.mouse.get_pos()
         click = pygame.mouse.get_pressed()
-
+        white_pieces = [i for i in range(64) if board[i].isupper()]
+        black_pieces = [i for i in range(64) if board[i].islower()]
         for i in range(1, 9):
             for j in range(1, 9):
                 if j % 2 == 0:
@@ -175,13 +193,16 @@ def main():
                 else:
                     pygame.draw.rect(screen, color2, (j*83, i*83, 83, 83))
                 if board[8*(i-1)+(j-1)] != " ":screen.blit(images.get(board[8*(i-1)+(j-1)]), (j*83,i*83))
-
                 if j*83+83 > mouse[0] > j*83 and i*83+83 > mouse[1] > i*83 and click[0]:
                     if turn == "white":
                         if not selected and (mouse[1]//83-1)*8+(mouse[0]//83-1) in white_pieces:
                             selected = (mouse[0]//83, mouse[1]//83)
                             moves = get_moves((mouse[0]//83, mouse[1]//83), white_pieces, black_pieces)
-                        else:
+                        else: 
+                            if (mouse[0]//83, mouse[1]//83) in moves and click[0]:
+                                board[(mouse[1]//83-1)*8+(mouse[0]//83-1)], board[(selected[1]-1)*8+(selected[0]-1)] = board[(selected[1]-1)*8+(selected[0]-1)], " "
+                                turn = "black"
+                                pygame.mixer.find_channel(True).play(pygame.mixer.Sound("move.mp3"))
                             moves = []
                             selected = None
                     else:
@@ -189,6 +210,10 @@ def main():
                             selected = (mouse[0]//83, mouse[1]//83)
                             moves = get_moves((mouse[0]//83, mouse[1]//83), black_pieces, white_pieces)
                         else:
+                            if (mouse[0]//83, mouse[1]//83) in moves and click[0]:
+                                board[(mouse[1]//83-1)*8+(mouse[0]//83-1)], board[(selected[1]-1)*8+(selected[0]-1)] = board[(selected[1]-1)*8+(selected[0]-1)], " "
+                                turn = "white"
+                                pygame.mixer.find_channel(True).play(pygame.mixer.Sound("move.mp3"))
                             moves = []
                             selected = None
             color1, color2 = color2, color1
